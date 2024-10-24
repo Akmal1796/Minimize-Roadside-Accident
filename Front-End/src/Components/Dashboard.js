@@ -1,43 +1,58 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Button } from 'react-bootstrap';
-import axios from 'axios';
+import { Card, Button, Alert } from 'react-bootstrap';
 
 const Dashboard = () => {
-  const [weatherData, setWeatherData] = useState(null);
-  const [location, setLocation] = useState({ lat: 37.7749, lng: -122.4194 }); // Default to San Francisco
-  const [loadingLocation, setLoadingLocation] = useState(true); // To manage geolocation state
+  const [location, setLocation] = useState({ lat: 37.7749, lng: -122.4194, altitude: null });
+  const [loadingLocation, setLoadingLocation] = useState(true);
+  const [address, setAddress] = useState('');
+  const [speed, setSpeed] = useState(0);
+  const speedLimit = 80;
+  const [showCaution, setShowCaution] = useState(false);
 
-  const API_KEY = 'c4f8532fe7924817a4460028242410';
-
-  const fetchWeatherData = async () => {
-    try {
-      console.log(`Fetching weather data for location: ${location.lat}, ${location.lng}`);
-      const response = await axios.get(
-        `https://api.openweathermap.org/data/2.5/weather?lat=${location.lat}&lon=${location.lng}&appid=${API_KEY}&units=metric`
-      );
-      console.log("Weather Data:", response.data);
-      setWeatherData(response.data);
-    } catch (error) {
-      console.error("Error fetching weather data:", error);
-    }
+  const hardcodedWeatherData = {
+    weather: [{ description: "Clear sky" }],
+    main: {
+      temp: 25,
+      humidity: 60,
+    },
   };
 
-
-  // Fetch user's location and then weather data
   useEffect(() => {
-    // Check if browser supports Geolocation API
+    const interval = setInterval(() => {
+      const newSpeed = Math.floor(Math.random() * 120);
+      setSpeed(newSpeed);
+      if (newSpeed > speedLimit) {
+        setShowCaution(true);
+      } else {
+        setShowCaution(false);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          const { latitude, longitude, altitude } = position.coords;
           setLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
+            lat: latitude,
+            lng: longitude,
+            altitude: altitude ? altitude.toFixed(2) + ' meters' : 'N/A',
           });
-          setLoadingLocation(false); // Location fetched
+          setLoadingLocation(false);
+
+          fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
+          )
+            .then((response) => response.json())
+            .then((data) => setAddress(data.display_name))
+            .catch((error) => console.error('Error fetching address:', error));
         },
         (error) => {
           console.error("Error getting location:", error);
-          setLoadingLocation(false); // If location access is denied or error occurs
+          setLoadingLocation(false);
         }
       );
     } else {
@@ -46,35 +61,36 @@ const Dashboard = () => {
     }
   }, []);
 
-  // Fetch weather data once the location is set
-  useEffect(() => {
-    if (!loadingLocation) {
-      fetchWeatherData();
-    }
-  }, [location, loadingLocation]);
-
   return (
     <div className="container mt-5">
       <h2 className="text-center">Dashboard</h2>
+
+      <div className="row mb-3">
+        <div className="col-md-12">
+          <Card>
+            <Card.Body>
+              <Card.Title>Speed Meter</Card.Title>
+              <Card.Text>{`Current Speed: ${speed} km/h`}</Card.Text>
+              {showCaution && (
+                <Alert variant="warning">
+                  Caution: You are exceeding the speed limit of {speedLimit} km/h!
+                </Alert>
+              )}
+            </Card.Body>
+          </Card>
+        </div>
+      </div>
+
       <div className="row">
-        {/* Weather Alerts Card */}
         <div className="col-md-6">
           <Card className="mb-3">
             <Card.Body>
               <Card.Title>Weather Alerts</Card.Title>
-              {weatherData ? (
-                <>
-                  <Card.Text>
-                    {`Current Weather: ${weatherData.weather[0].description}`}
-                  </Card.Text>
-                  <Card.Text>{`Temperature: ${weatherData.main.temp} °C`}</Card.Text>
-                  <Card.Text>{`Humidity: ${weatherData.main.humidity}%`}</Card.Text>
-                </>
-              ) : loadingLocation ? (
-                <Card.Text>Fetching location and weather data...</Card.Text>
-              ) : (
-                <Card.Text>Unable to retrieve weather data.</Card.Text>
-              )}
+              <Card.Text>
+                {`Current Weather: ${hardcodedWeatherData.weather[0].description}`}
+              </Card.Text>
+              <Card.Text>{`Temperature: ${hardcodedWeatherData.main.temp} °C`}</Card.Text>
+              <Card.Text>{`Humidity: ${hardcodedWeatherData.main.humidity}%`}</Card.Text>
               <Button variant="primary" href="/weather-alerts">
                 View Details
               </Button>
@@ -91,7 +107,12 @@ const Dashboard = () => {
                 {loadingLocation ? (
                   "Fetching location..."
                 ) : (
-                  `Latitude: ${location.lat}, Longitude: ${location.lng}`
+                  <>
+                    <p><strong>Latitude:</strong> {location.lat}</p>
+                    <p><strong>Longitude:</strong> {location.lng}</p>
+                    <p><strong>Altitude:</strong> {location.altitude}</p>
+                    {address && <p><strong>Address:</strong> {address}</p>}
+                  </>
                 )}
               </Card.Text>
               <Button variant="primary" href="/nearby-services">
