@@ -51,7 +51,7 @@ const WeatherAlert = () => {
   ];
 
   return (
-    <div className="container mt-5">
+    <div className="container mt-5" style={{paddingBottom: "100px"}}>
       <h2>Weather Alerts</h2>
       <Card className="mt-3">
         <Card.Body>
